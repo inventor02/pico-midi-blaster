@@ -25,18 +25,25 @@ messages.
 
 Messages contain a status byte in which the four most significant bits denote the message ID and the four least significant bits denote the channel number (1-16). They also contain either one or two data bytes, most significant byte first.
 
-#### Note Off (`0x8N`)
+#### Note Off (`0x8n`)
+
+(where `n` is the channel number)
 
 The Note Off message has two data bytes.
 
 1. `0` followed by 7 bits that determine the note number (0-127).
 2. `0` followed by 7 bits determining the note off velocity (0-127).
 
-#### Note On (`0x9N`)
+#### Note On (`0x9n`)
+
+(where `n` is the channel number)
 
 The Note On message has two data bytes.
 
 1. `0` followed by 7 bits that determine the note number (0-127).
 2. `0` followed by 7 bits determining the note on velocity (0-127).
 
-#### SysEx End of File
+#### End of Track Meta Event (`0xFF_2F_00`)
+
+The meta-event `0x2F` (and surrounded by `0xFF` as the start of a meta-event and `0x00` as the length being 0)
+represents the end of the track.

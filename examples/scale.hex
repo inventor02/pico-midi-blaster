@@ -1,0 +1,101 @@
+4D 54 68 64 - "MThd"
+00 00 00 06 - header length 6
+00 00 00 01 - type 0, 1 track
+00 80 - division, 128 bits per quarter note
+
+4D 54 72 6B - "MTrk"
+00 00 00 5D - chunk length 93 bytes
+
+00 - delta time 0
+FF 03 - meta event 3, "sequence/track name"
+06 - length 6
+57 61 74 73 79 6E - "Watsyn"
+
+00 - delta time 0
+FF 51 - meta event 51, "set tempo"
+03 - length 3
+06 8A 1B - 428,571 microseconds per quarter note
+
+00 - delta time 0
+90 - event 9, "note on", channel 0
+48 - note 72
+40 - velocity 64
+
+81 00 - delta time 128
+80 - event 8, "note off", channel 0
+48 - note 72
+40 - velocity 64
+
+00 - delta time 0
+90 - event 9, "note on", channel 0
+4A - note 74
+40 - velocity 64
+
+81 00 - delta time 128
+80 - event 8, "note off", channel 0
+4A - note 74
+40 - velocity 64
+
+00 - delta time 0
+90 - event 9, "note on", channel 0
+4C - note 76
+40 - velocity 64
+
+81 00 - delta time 128
+80 - event 8, "note off", channel 0
+4C - note 76
+40 - velocity 64
+
+00 - delta time 0
+90 - event 9, "note on", channel 0
+4D - note 77
+40 - velocity 64
+
+81 00 - delta time 128
+80 - event 8, "note off", channel 0
+4D - note 77
+40 - velocity 64
+
+00 - delta time 0
+90 - event 9, "note on", channel 0
+4F - note 79
+40 - velocity 64
+
+81 00 - delta time 128
+80 - event 8, "note off", channel 0
+4F - note 79
+40 - velocity 64
+
+00 - delta time 0
+90 - event 9, "note on", channel 0
+51 - note 81
+40 - velocity 64
+
+81 00 - delta time 128
+80 - event 8, "note off", channel 0
+51 - note 81
+40 - velocity 64
+
+00 - delta time 0
+90 - event 9, "note on", channel 0
+53 - note 83
+40 - velocity 64
+
+81 00 - delta time 128
+80 - event 8, "note off", channel 0
+53 - note 83
+40 - velocity 64
+
+00 - delta time 0
+90 - event 9, "note on", channel 0
+54 - note 83
+40 - velocity 64
+
+81 00 - delta time 128
+80 - event 8, "note off", channel 0
+54 - note 83
+40 - velocity 64
+
+00 - delta time 0
+FF 2F - meta event 2F, "end of track"
+00 - length 0
