@@ -6,6 +6,18 @@
 4D 54 72 6B - "MTrk"
 00 00 00 5D - chunk length 93 bytes
 
+### Note
+# The following meta event is describing all channels which is not ideal in some cases.
+# Sometimes, there can be another meta event before this one which specifies the channel
+# for meta events that follow until the next "normal" event or the next channel meta
+# event. For details see the SMF spec. An example is below.
+# 
+# 00 - delta time 0
+# FF 20 - meta event 20, "MIDI channel prefix"
+# 01 - length 1
+# 00 - channel 0
+### End Note
+
 00 - delta time 0
 FF 03 - meta event 3, "sequence/track name"
 06 - length 6
