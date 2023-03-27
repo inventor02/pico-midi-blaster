@@ -1,3 +1,8 @@
+### Note
+# The below represents exactly the contents of the scale.mid file represented in hex
+# form, most significant byte first.
+### End Note
+
 4D 54 68 64 - "MThd"
 00 00 00 06 - header length 6
 00 00 00 01 - type 0, 1 track
@@ -111,3 +116,4 @@ FF 51 - meta event 51, "set tempo"
 00 - delta time 0
 FF 2F - meta event 2F, "end of track"
 00 - length 0
+
