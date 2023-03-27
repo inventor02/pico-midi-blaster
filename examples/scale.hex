@@ -116,4 +116,3 @@ FF 51 - meta event 51, "set tempo"
 00 - delta time 0
 FF 2F - meta event 2F, "end of track"
 00 - length 0
-
