@@ -2,26 +2,24 @@
 #include "hardware/spi.h"
 #include "sd_card.h"
 #include "hw_config.h"
+#include "diskio.h"
 
-const uint GPIO_SD_CD = 8;
-const uint GPIO_SD_MISO = 12;
-const uint GPIO_SD_MOSI = 11;
-const uint GPIO_SD_SCK = 10;
-const uint GPIO_SD_SS = 15;
-const uint BAUD_SD = 12500 * 1000;
+#include "config.h"
 
-static const spi_t SPI = {
+static spi_t SPI = {
   .hw_inst = spi1,
   .miso_gpio = GPIO_SD_MISO,
   .mosi_gpio = GPIO_SD_MOSI,
   .sck_gpio = GPIO_SD_SCK,
   .baud_rate = BAUD_SD,
+  .mutex = {}
 };
 
-static const sd_card_t SD_CARD = {
-  .pcName = "",
+static sd_card_t SD_CARD = {
+  .pcName = "0:",
   .spi = &SPI,
   .ss_gpio = GPIO_SD_SS,
+  .m_Status = STA_NOINIT,
 };
 
 size_t spi_get_num() {
