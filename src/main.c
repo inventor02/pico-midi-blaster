@@ -8,6 +8,7 @@
 #include "f_util.h"
 
 #include "config.h"
+#include "midi.h"
 
 int main() {
   stdio_init_all();
@@ -32,14 +33,15 @@ int main() {
     panic("f_open error! %s\n", FRESULT_str(fr));
   }
 
-  char buf[100] = "";
-  fr = f_read(&file, &buf, 100, NULL);
-
-  printf("file contents: %s\n", buf);
+  char buf[24] = "";
+  fr = f_read(&file, &buf, 24, NULL);
   f_close(&file);
 
   f_unmount(sd->pcName);
   printf("Done\n");
+
+  midi_file_t midi;
+  midi_file_parse(&midi, (uint8_t *)buf, 24);
 
   gpio_put(PICO_DEFAULT_LED_PIN, 0);
   for (;;) tight_loop_contents();

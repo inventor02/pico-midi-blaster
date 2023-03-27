@@ -24,6 +24,6 @@ typedef struct midi_file {
   midi_chunk_t chunks[];
 } midi_file_t;
 
-void midi_file_parse(midi_file_t *file, uint contents[]);
+void midi_file_parse(midi_file_t *file, uint8_t contents[], uint contents_length);
 
 #endif
