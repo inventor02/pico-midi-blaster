@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #include "pico/stdlib.h"
 
@@ -61,12 +62,11 @@ void midi_file_parse(midi_file_t *file, uint8_t contents[], uint contents_length
 
   // allocate a buffer of 5 bytes for the header type
   char header_type[5];
-  memcpy(header_type, contents, 4 * sizeof(char));
-  header_type[4] = '\0';
+  strncpy(header_type, contents, 4);
   o += 4;
 
   // assert the header type is that of a SMF file
-  assert(*header_type == "MThd");
+  if(strncmp(header_type, "MThd", 4)) panic("incorrect header type %s", header_type);
 
   // get the length of the header
   uint32_t header_length = bytes_to_i32(contents + o);
@@ -74,14 +74,14 @@ void midi_file_parse(midi_file_t *file, uint8_t contents[], uint contents_length
 
   // check the length of the header is 6
   // if it's not, we have a problem
-  assert(header_length == 6);
+  if (header_length != 6) panic("incorrect header length %d", header_length);
 
   // get the type of the file
   uint16_t file_type = bytes_to_i16(contents + o);
   o += 2;
 
   // if the type is not 0, we aren't worthy
-  assert(file_type == 0);
+  if (file_type != 0) panic("incorrect file format %d", file_type);
 
   file->format = 0;
 
@@ -91,7 +91,7 @@ void midi_file_parse(midi_file_t *file, uint8_t contents[], uint contents_length
 
   // if this is a format 0 file and there are != 1 tracks,
   // the file is malformed
-  assert(tracks == 1);
+  if (tracks != 1) panic("files must have one track! found %d", tracks);
 
   file->ntrks = tracks;
 
@@ -102,5 +102,4 @@ void midi_file_parse(midi_file_t *file, uint8_t contents[], uint contents_length
   file->division = division;
 
   printf("Parsed header:\nlength=%d\ntype %d\n%d tracks\ndivision is %d\n", header_length, file_type, tracks, division);
-  printf("If we get to this point, we can carry on.\n");
 }

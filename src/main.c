@@ -42,6 +42,7 @@ int main() {
 
   midi_file_t midi;
   midi_file_parse(&midi, (uint8_t *)buf, 24);
+  printf("main returned\n");
 
   gpio_put(PICO_DEFAULT_LED_PIN, 0);
   for (;;) tight_loop_contents();

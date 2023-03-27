@@ -6,7 +6,7 @@
 4D 54 68 64 - "MThd"
 00 00 00 06 - header length 6
 00 00 00 01 - type 0, 1 track
-00 80 - division, 128 bits per quarter note
+00 80 - division, 128 ticks per quarter note
 
 4D 54 72 6B - "MTrk"
 00 00 00 5D - chunk length 93 bytes
