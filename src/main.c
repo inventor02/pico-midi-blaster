@@ -22,15 +22,6 @@ static midi_file_t midi;
 
 static float vol = 0.2;
 
-void gpio_callback(uint gpio, uint32_t event_mask) {
-  switch (gpio) {
-    case GPIO_PLAY_PAUSE: play_pause_callback(); return;
-    case GPIO_VOL_UP:
-    case GPIO_VOL_DOWN: vol_up_down_callback(gpio); return;
-    default: // do nowt
-  }
-}
-
 void play_pause_callback() {
   printf("play/pause: %d\n", !play);
   play = !play; 
@@ -50,19 +41,13 @@ void vol_up_down_callback(uint gpio) {
   printf("new %f\n", vol);  
 }
 
-void play_note(float freq, float vol) {
-  uint32_t wrap = PWM_TOP / freq;
-  pwm_set_wrap(pwm_slice, wrap);
-
-  uint16_t duty = (wrap + 1) * vol - 1;
-  pwm_set_chan_level(pwm_slice, pwm_chan, duty);
-
-  printf("wrap=%d, duty=%d\n", wrap, duty);
-  pwm_set_enabled(pwm_slice, true);
-}
-
-void stop_note() {
-  pwm_set_enabled(pwm_slice, false);
+void gpio_callback(uint gpio, uint32_t event_mask) {
+  switch (gpio) {
+    case GPIO_PLAY_PAUSE: play_pause_callback(); return;
+    case GPIO_VOL_UP:
+    case GPIO_VOL_DOWN: vol_up_down_callback(gpio); return;
+    default: // do nowt
+  }
 }
 
 void init() {
@@ -116,31 +101,24 @@ void play_song() {
 
   uint16_t ms_per_qn = 429; // can get this from the MIDI if you wanted to
 
-  midi_event_t *events = &(midi.chunks[0].events);
-  uint8_t event_count = midi.chunks[0].length;
+  // get your MIDI events
 
-  for (int i = 0; i < event_count; i++) {
-    while (!play) tight_loop_contents();
-
-    busy_wait_ms((events[i].delta_time / midi.division) * ms_per_qn);
-    
-    if (events[i].type == NOTE_ON) {
-      uint8_t note = events[i].data[0];
-      printf("Playing note %d, %f\n", note, MIDI_FREQS[note]);
-      play_note(MIDI_FREQS[note], vol);
-    } else {
-      stop_note();
-    }
-  }
-
-  printf("done!");
+  // play them back in sequence
 }
 
 int main() {
   init();
   load_midi();
 
-  play_song();
+  // play your song!
+  // you have the midi object as a static variable in this translation unit
+  // you also have various other configs in config.h
+
+  // some pointers:
+  // - you may wish to make some helper functions to handle translating a MIDI frequency into
+  //   a duty cycle for the PWM
+  // - you may wish to run your PWM clock at *less* than the system clock
+  // - a lot of the PWM values are capped as uint16s! don't forget that! I did ;-)
   
   gpio_put(PICO_DEFAULT_LED_PIN, 0);
   for (;;) tight_loop_contents();
