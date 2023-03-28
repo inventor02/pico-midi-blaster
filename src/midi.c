@@ -31,14 +31,14 @@ uint32_t varlen_bytes_to_i32(uint8_t bytes[]) {
 
     // if the most significant bit is a 1, we have more
     // bytes to read, if a 0, stop
-    if ((byte >> 7) & 0b1) more = false;
+    if ((byte & 0x80) == 0) more = false;
 
     // clear most significant bit
-    byte = byte & 0b01111111;
+    byte = byte & 0x7F;
 
     // shift the existing result left by 7 bits and then
-    // bitwise OR with our new byte (now the LSB)
-    result = (result << (i * 7)) | byte;
+    // add to our new byte (now the LSB)
+    result = (result << 7) + (uint32_t)byte;
 
     // we could get stuck here, so if we are reading far too
     // many bytes we will panic - i > 4 means we cannot fit
@@ -106,6 +106,134 @@ midi_event_type_t midi_event_voice_type(uint8_t status) {
     case 0x80: return NOTE_OFF;
     case 0x90: return NOTE_ON;
   }
+
+  return OTHER;
+}
+
+int midi_chunk_parse(midi_chunk_t *chunk, uint8_t *contents, uint contents_length) {
+  puts("Parsing MIDI chunk");
+
+  if (contents_length < 8) panic("not enough bytes for chunk header!");
+
+  uint o = 0;
+
+  char header_type[5];
+  strncpy(header_type, contents, 4);
+  o += 4;
+
+  uint32_t raw_length = bytes_to_i32(contents + o);
+  o += 4;
+
+  if (strncmp(header_type, "MTrk", 4)) {
+    // this is not a track chunk, so we can ignore it
+    puts("Ignoring non track chunk");
+    return o + raw_length;
+  }
+
+  bool more = true;
+  uint8_t status = 0;
+  uint8_t stat_type = 0;
+  uint i = 0;
+  while (more) {
+    printf("parsing message, i = %d, o = %d\n", i, o);
+
+    uint32_t delta_time = varlen_bytes_to_i32(contents + o);
+    o += varlen_bytes_count(delta_time);
+
+    uint8_t stat = *(contents + o);
+    uint8_t chan = 0;
+
+    printf("stat is %x, chan is %d\n", stat, chan);
+
+    if (stat <= 0x7F) {
+      // this is actually another data byte for the previous message
+      // but we don't know what the message was, so we ignore it
+      printf("ignoring unsolicited data byte\n");
+      o++;
+      continue;
+    } else {
+      status = stat;
+      o++;
+
+      stat_type = midi_event_stat_type(stat);
+      printf("status type is %d\n", stat_type);
+      
+      // clear the buffer if a system exclusive or system common message
+      // is received
+      if (stat_type == STAT_SYS_EX || stat_type == STAT_SYS_COM) {
+        status = 0;
+        stat_type = 0;
+        printf("sysex or syscom event, clearing buffer\n");
+      }
+    }
+
+    if (stat_type == STAT_META) { // SMF meta messages
+      uint8_t meta_msg = *(contents + o);
+      o++;
+
+      printf("meta message");
+
+      if (meta_msg == 0x2F) { // end of track
+        midi_event_t event = {
+          .delta_time = delta_time,
+          .channel = 0,
+          .type = END_OF_TRACK,
+          .data = {}
+        };
+
+        printf(" - end of track\n");
+
+        chunk->events[i] = event;
+        i++;
+        more = false;
+        o++; // as there is always a 0 byte following this event
+      } else { // some meta event we don't care about
+        uint8_t meta_len = varlen_bytes_to_i32(contents + o);
+        printf(" - other, length %d, o was %d\n", meta_len, o);
+        o += varlen_bytes_count(meta_len);
+        o += meta_len;
+        continue;
+      }
+    } else if (stat_type == STAT_SYS_EX || stat_type == STAT_SYS_COM) { // sysex messages
+      uint8_t sysex_len = varlen_bytes_to_i32(contents + o);
+      o += varlen_bytes_count(sysex_len);
+      printf("sysex message length %d, %d is new offset\n", sysex_len, o);
+      continue;
+    } else { // channel messages
+      chan = midi_event_get_chan(status);
+      
+      midi_event_type_t type = midi_event_voice_type(status);
+      midi_event_t event = {
+        .delta_time = delta_time,
+        .channel = chan,
+        .type = type
+      };
+
+      printf("event of type %d, delta %d\n", type, delta_time);
+
+      uint8_t data_len = midi_event_data_len(status);
+      memcpy(event.data, contents + o, data_len);
+      o += data_len;
+
+      printf("data: %x %x %x\n", event.data[0], event.data[1], event.data[2]);
+
+      chunk->events[i] = event;
+      i++;
+
+      printf("next event!\n\n");
+    }
+
+    // we shouldn't ever get here, because there should be an End of Track meta event
+    if (o > contents_length + 1) {
+      more = false;
+
+      // log something to UART so we can see what has happened
+      printf("ran out of bytes to read in chunk, this is bad! got offset %d, length was %d\n", o, contents_length);
+    }
+  }
+
+  chunk->length = i;
+  return o;
 }
 
 void midi_file_parse(midi_file_t *file, uint8_t contents[], uint contents_length) {
@@ -159,110 +287,16 @@ void midi_file_parse(midi_file_t *file, uint8_t contents[], uint contents_length
   file->division = division;
 
   printf("Parsed header:\nlength=%d\ntype %d\n%d tracks\ndivision is %d\n", header_length, file_type, tracks, division);
-}
 
-int midi_chunk_parse(midi_chunk_t *chunk, uint8_t contents[], uint contents_length) {
-  puts("Parsing MIDI chunk");
+  printf("offset is %d\n", o);
 
-  if (contents_length < 8) panic("not enough bytes for chunk header!");
-
-  uint o = 0;
-
-  char header_type[5];
-  strncpy(header_type, contents, 4);
-  o += 4;
-
-  if (strncmp(header_type, "MTrk", 4)) {
-    // this is not a track chunk, so we can ignore it
-    return 1;
+  uint8_t c = 0;
+  while ((contents_length - o + 1) > 1) {
+    printf("Parsing chunk %d, o=%d\n", c, contents_length - o);
+    o += midi_chunk_parse(&file->chunks[c], contents + o, contents_length - o);
+    c++;
+    printf("new o = %d\n", o);
   }
 
-  uint32_t raw_length = bytes_to_i32(contents + o);
-  o += 4;
-
-  bool more = true;
-  uint8_t status = 0;
-  uint8_t stat_type = 0;
-  uint i = 0;
-  while (more) {
-    uint32_t delta_time = varlen_bytes_to_i32(contents + o);
-    o += varlen_bytes_count(delta_time);
-
-    uint8_t stat = *(contents + o);
-    uint8_t chan = 0;
-
-    if (stat <= 0x7F) {
-      // this is actually another data byte for the previous message
-      // but we don't know what the message was, so we ignore it
-      o++;
-      continue;
-    } else {
-      status = stat;
-      o++;
-
-      stat_type = midi_event_stat_type(stat);
-      
-      // clear the buffer if a system exclusive or system common message
-      // is received
-      if (stat_type == STAT_SYS_EX || stat_type == STAT_SYS_COM) {
-        status = 0;
-        stat_type = 0;
-      }
-    }
-
-    if (stat_type == STAT_META) { // SMF meta messages
-      uint8_t meta_msg = *(contents + o);
-      o++;
-
-      if (meta_msg == 0x2F) { // end of track
-        o++;
-
-        midi_event_t event = {
-          .delta_time = delta_time,
-          .channel = 0,
-          .type = END_OF_TRACK,
-          .data = {}
-        };
-
-        chunk->events[i] = event;
-        more = false;
-      } else { // some meta event we don't care about
-        uint8_t meta_len = varlen_bytes_to_i32(contents + o);
-        o += varlen_bytes_count(meta_len);
-      }
-    } else if (stat_type == STAT_SYS_EX || stat_type == STAT_SYS_COM) { // sysex messages
-      uint8_t sysex_len = varlen_bytes_to_i32(contents + o);
-      o += varlen_bytes_count(sysex_len);
-    } else { // channel messages
-      chan = midi_event_get_chan(status);
-
-      uint8_t data_bytes_length = midi_event_data_len(status);
-      uint8_t data[data_bytes_length];
-
-      memcpy(data, contents + o, data_bytes_length);
-      o += data_bytes_length;
-
-      midi_event_type_t type = midi_event_voice_type(status);
-      midi_event_t event = {
-        .delta_time = delta_time,
-        .channel = chan,
-        .type = type
-      };
-
-      uint8_t data_len = midi_event_data_len(status);
-      memcpy(event.data, contents + o, data_len);
-
-      chunk->events[i] = event;
-    }
-
-    i++;
-
-    // we shouldn't ever get here, because there should be an End of Track meta event
-    if (o >= contents_length) {
-      more = false;
-
-      // log something to UART so we can see what has happened
-      printf("ran out of bytes to read in chunk, this is bad! got offset %d, length was %d\n", o, contents_length);
-    }
-  }
+  printf("Parsing done.\n");
 }
