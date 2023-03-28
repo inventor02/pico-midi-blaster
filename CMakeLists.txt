@@ -18,6 +18,7 @@ target_link_libraries(blaster
   pico_time
   hardware_spi
   hardware_pwm
+  hardware_clocks
   FatFs_SPI
 )
 pico_add_extra_outputs(blaster)
