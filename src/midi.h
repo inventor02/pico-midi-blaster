@@ -7,22 +7,39 @@
 
 #include "config.h"
 
-typedef enum midi_event {
+#define STAT_CHAN       1
+// if you wanted to distinguish between channel voice
+// and channel mode, you could do it here as 2
+#define STAT_SYS_EX     3
+#define STAT_SYS_COM    4
+#define STAT_SYS_RT     5
+
+typedef enum midi_event_type {
   NOTE_ON,
-  NOTE_OFF
+  NOTE_OFF,
+  END_OF_TRACK
+} midi_event_type_t;
+
+typedef struct midi_event {
+  midi_event_type_t type;
+  uint8_t channel;
+  uint32_t delta_time;
+  uint8_t data[3];
 } midi_event_t;
 
 typedef struct midi_chunk {
   uint32_t length;
-  uint data[];
+  uint8_t data[1024];
 } midi_chunk_t;
 
 typedef struct midi_file {
   uint16_t format;
   uint16_t ntrks;
   uint16_t division;
-  midi_chunk_t chunks[];
+  midi_chunk_t chunks[1];
 } midi_file_t;
+
+int midi_chunk_parse(midi_chunk_t *chunk, uint8_t contents[], uint contents_length);
 
 void midi_file_parse(midi_file_t *file, uint8_t contents[], uint contents_length);
 

@@ -1,5 +1,6 @@
 #include "midi.h"
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -49,6 +50,49 @@ uint32_t varlen_bytes_to_i32(uint8_t bytes[]) {
   }
 
   return result;
+}
+
+uint8_t varlen_bytes_count(uint32_t varlen) {
+  if (varlen <= 0x7F) return 1;
+  if (varlen <= 0x3FFF) return 2;
+  if (varlen <= 0x1FFFFF) return 3;
+  return 4;
+}
+
+int midi_event_data_len(uint8_t status) {
+  uint8_t msg = status & 0xF0;
+
+  switch (msg) {
+    case 0x80: return 2;
+    case 0x90: return 2;
+    case 0xA0: return 2;
+    case 0xB0: return 2;
+    case 0xC0: return 1;
+    case 0xD0: return 1;
+    case 0xE0: return 2;
+  }
+}
+
+int midi_event_get_chan(uint8_t status) {
+  return status & 0x0F;
+}
+
+int midi_event_stat_type(uint8_t status) {
+  uint8_t o1 = status & 0xF0;
+  uint8_t o2 = status & 0x0F;
+
+  if (o1 == 0xF0) { // system
+    if (o2 == 0x00) return STAT_SYS_EX;
+    if ((o2 & 0x8) == 0x0) return STAT_SYS_COM;
+    return STAT_SYS_RT;
+  }
+
+  /*
+    There is a caveat here! 0xB0 can be either channel voice or channel mode,
+    but as we do not care about these messages in our implementation we just
+    assume it's channel voice - note that this is *wrong* though.
+  */
+  return STAT_CHAN_VOICE;
 }
 
 void midi_file_parse(midi_file_t *file, uint8_t contents[], uint contents_length) {
@@ -102,4 +146,56 @@ void midi_file_parse(midi_file_t *file, uint8_t contents[], uint contents_length
   file->division = division;
 
   printf("Parsed header:\nlength=%d\ntype %d\n%d tracks\ndivision is %d\n", header_length, file_type, tracks, division);
+}
+
+int midi_chunk_parse(midi_chunk_t *chunk, uint8_t contents[], uint contents_length) {
+  puts("Parsing MIDI chunk");
+
+  if (contents_length < 8) panic("not enough bytes for chunk header!");
+
+  uint o = 0;
+
+  char header_type[5];
+  strncpy(header_type, contents, 4);
+  o += 4;
+
+  if (strncmp(header_type, "MTrk", 4)) {
+    // this is not a track chunk, so we can ignore it
+    return 1;
+  }
+
+  uint32_t raw_length = bytes_to_i32(contents + o);
+  o += 4;
+
+  bool more = true;
+  uint8_t status = 0;
+  uint8_t stat_type = 0;
+  while (more) {
+    uint32_t delta_time = varlen_bytes_to_i32(contents + o);
+    o += varlen_bytes_count(delta_time);
+
+    uint8_t stat = *(contents + o);
+    uint8_t chan = 0;
+
+    if (stat <= 0x7F) {
+      // this is actually another data byte for the previous message
+      // but we don't know what the message was, so we ignore it
+      o++;
+      continue;
+    } else {
+      status = stat;
+      o++;
+
+      stat_type = midi_event_stat_type(stat);
+      
+      // clear the buffer if a system exclusive or system common message
+      // is received
+      if (stat_type == STAT_SYS_EX || stat_type == STAT_SYS_COM) {
+        status = 0;
+        stat_type = 0;
+      }
+    }
+
+    chan = midi_event_get_chan(status);
+  }
 }
