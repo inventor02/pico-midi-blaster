@@ -13,11 +13,13 @@
 #define STAT_SYS_EX     3
 #define STAT_SYS_COM    4
 #define STAT_SYS_RT     5
+#define STAT_META       6 // only in SMF, "meta events"
 
 typedef enum midi_event_type {
+  OTHER = -1,
   NOTE_ON,
   NOTE_OFF,
-  END_OF_TRACK
+  END_OF_TRACK,
 } midi_event_type_t;
 
 typedef struct midi_event {
@@ -29,7 +31,7 @@ typedef struct midi_event {
 
 typedef struct midi_chunk {
   uint32_t length;
-  uint8_t data[1024];
+  midi_event_t events[1024];
 } midi_chunk_t;
 
 typedef struct midi_file {

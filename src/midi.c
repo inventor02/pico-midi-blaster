@@ -78,6 +78,10 @@ int midi_event_get_chan(uint8_t status) {
 }
 
 int midi_event_stat_type(uint8_t status) {
+  if (status == 0xFF) {
+    return STAT_META;
+  }
+  
   uint8_t o1 = status & 0xF0;
   uint8_t o2 = status & 0x0F;
 
@@ -92,7 +96,16 @@ int midi_event_stat_type(uint8_t status) {
     but as we do not care about these messages in our implementation we just
     assume it's channel voice - note that this is *wrong* though.
   */
-  return STAT_CHAN_VOICE;
+  return STAT_CHAN;
+}
+
+midi_event_type_t midi_event_voice_type(uint8_t status) {
+  uint8_t msg = status & 0xF0;
+
+  switch (msg) {
+    case 0x80: return NOTE_OFF;
+    case 0x90: return NOTE_ON;
+  }
 }
 
 void midi_file_parse(midi_file_t *file, uint8_t contents[], uint contents_length) {
@@ -170,6 +183,7 @@ int midi_chunk_parse(midi_chunk_t *chunk, uint8_t contents[], uint contents_leng
   bool more = true;
   uint8_t status = 0;
   uint8_t stat_type = 0;
+  uint i = 0;
   while (more) {
     uint32_t delta_time = varlen_bytes_to_i32(contents + o);
     o += varlen_bytes_count(delta_time);
@@ -196,6 +210,59 @@ int midi_chunk_parse(midi_chunk_t *chunk, uint8_t contents[], uint contents_leng
       }
     }
 
-    chan = midi_event_get_chan(status);
+    if (stat_type == STAT_META) { // SMF meta messages
+      uint8_t meta_msg = *(contents + o);
+      o++;
+
+      if (meta_msg == 0x2F) { // end of track
+        o++;
+
+        midi_event_t event = {
+          .delta_time = delta_time,
+          .channel = 0,
+          .type = END_OF_TRACK,
+          .data = {}
+        };
+
+        chunk->events[i] = event;
+        more = false;
+      } else { // some meta event we don't care about
+        uint8_t meta_len = varlen_bytes_to_i32(contents + o);
+        o += varlen_bytes_count(meta_len);
+      }
+    } else if (stat_type == STAT_SYS_EX || stat_type == STAT_SYS_COM) { // sysex messages
+      uint8_t sysex_len = varlen_bytes_to_i32(contents + o);
+      o += varlen_bytes_count(sysex_len);
+    } else { // channel messages
+      chan = midi_event_get_chan(status);
+
+      uint8_t data_bytes_length = midi_event_data_len(status);
+      uint8_t data[data_bytes_length];
+
+      memcpy(data, contents + o, data_bytes_length);
+      o += data_bytes_length;
+
+      midi_event_type_t type = midi_event_voice_type(status);
+      midi_event_t event = {
+        .delta_time = delta_time,
+        .channel = chan,
+        .type = type
+      };
+
+      uint8_t data_len = midi_event_data_len(status);
+      memcpy(event.data, contents + o, data_len);
+
+      chunk->events[i] = event;
+    }
+
+    i++;
+
+    // we shouldn't ever get here, because there should be an End of Track meta event
+    if (o >= contents_length) {
+      more = false;
+
+      // log something to UART so we can see what has happened
+      printf("ran out of bytes to read in chunk, this is bad! got offset %d, length was %d\n", o, contents_length);
+    }
   }
 }
