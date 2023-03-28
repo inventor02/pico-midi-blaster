@@ -13,42 +13,10 @@
 #include "midi.h"
 #include "music.h"
 
-static bool play = false;
-
-static uint pwm_slice;
-static uint pwm_chan;
+// up here you may want to keep track of some stuff like the PWM channel
+// and slice, or whether you're currently playing, etc.
 
 static midi_file_t midi;
-
-static float vol = 0.2;
-
-void play_pause_callback() {
-  printf("play/pause: %d\n", !play);
-  play = !play; 
-}
-
-void vol_up_down_callback(uint gpio) {
-  printf("volume change: old %f, ", vol);
-
-  if (gpio == GPIO_VOL_UP) {
-    vol += 0.05F;
-    if (vol > 1) vol = 1.0F;
-  } else {
-    vol -= 0.05F;
-    if (vol < 0) vol = 0.0F;
-  }
-
-  printf("new %f\n", vol);  
-}
-
-void gpio_callback(uint gpio, uint32_t event_mask) {
-  switch (gpio) {
-    case GPIO_PLAY_PAUSE: play_pause_callback(); return;
-    case GPIO_VOL_UP:
-    case GPIO_VOL_DOWN: vol_up_down_callback(gpio); return;
-    default: // do nowt
-  }
-}
 
 void init() {
   stdio_init_all();
@@ -57,15 +25,9 @@ void init() {
   gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
   gpio_put(PICO_DEFAULT_LED_PIN, 1);
 
-  gpio_set_function(GPIO_PWM_BUZZER, GPIO_FUNC_PWM);
-  pwm_slice = pwm_gpio_to_slice_num(GPIO_PWM_BUZZER);
-  pwm_chan = pwm_gpio_to_channel(GPIO_PWM_BUZZER);
+  // you'll need to initialise the PWM system here
 
-  gpio_set_irq_enabled_with_callback(GPIO_VOL_DOWN, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
-  gpio_set_irq_enabled(GPIO_PLAY_PAUSE, GPIO_IRQ_EDGE_FALL, true);
-  gpio_set_irq_enabled(GPIO_VOL_UP, GPIO_IRQ_EDGE_FALL, true);
-
-  pwm_set_clkdiv(pwm_slice, clock_get_hz(clk_sys) / PWM_TOP);
+  // for the buttons, you might also want some interrupts on the GPIO pins
 }
 
 void load_midi() {
@@ -99,7 +61,10 @@ void load_midi() {
 void play_song() {
   printf("start playing\n");
 
-  uint16_t ms_per_qn = 429; // can get this from the MIDI if you wanted to
+  // milliseconds per quarter note - with this and the division, as well as the delta time, you can
+  // determine the delay between each event
+  // (you can get this from the MIDI itself if you wanted to)
+  uint16_t ms_per_qn = 429;
 
   // get your MIDI events
 
@@ -113,6 +78,7 @@ int main() {
   // play your song!
   // you have the midi object as a static variable in this translation unit
   // you also have various other configs in config.h
+  play_song(); // I pulled this out into a function, but feel free to remove it
 
   // some pointers:
   // - you may wish to make some helper functions to handle translating a MIDI frequency into
