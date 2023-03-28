@@ -22,15 +22,6 @@ static midi_file_t midi;
 
 static float vol = 0.2;
 
-void gpio_callback(uint gpio, uint32_t event_mask) {
-  switch (gpio) {
-    case GPIO_PLAY_PAUSE: play_pause_callback(); return;
-    case GPIO_VOL_UP:
-    case GPIO_VOL_DOWN: vol_up_down_callback(gpio); return;
-    default: // do nowt
-  }
-}
-
 void play_pause_callback() {
   printf("play/pause: %d\n", !play);
   play = !play; 
@@ -48,6 +39,15 @@ void vol_up_down_callback(uint gpio) {
   }
 
   printf("new %f\n", vol);  
+}
+
+void gpio_callback(uint gpio, uint32_t event_mask) {
+  switch (gpio) {
+    case GPIO_PLAY_PAUSE: play_pause_callback(); return;
+    case GPIO_VOL_UP:
+    case GPIO_VOL_DOWN: vol_up_down_callback(gpio); return;
+    default: // do nowt
+  }
 }
 
 void play_note(float freq, float vol) {
